@@ -125,15 +125,18 @@ def calc_dep_feats(deps, df):
 
 def feats_by_dep(deps, df):
     dtypes = list(set([d[0] for d in deps]))
-    colnames = ['f'+ str(i) for i in range(len(df.columns))]
+    if isinstance(df.columns[0], str):
+        colnames = df.columns
+    else:
+        colnames = ['f'+ str(i) for i in range(len(df.columns))]
     feats = pd.DataFrame(0, index=dtypes, columns=colnames)
-    for dep in dtypes:
-        #print(dep + ": ", end='')
+    for i, dep in enumerate(dtypes):
+        #if np.round(i//len(dtypes)) / 10 == 0:
+        #    print('{}%\r'.format(np.round(i/len(dtypes) * 100, 3)), end='')
         words = list(set([w[-1] for w in deps if w[0] == dep]))
         for word in words:
-            #print(word, end=' ')
             feats.loc[dep] += df.loc[word].values / len(words)
-        #print('\n')
+    #print('Done.\t')
     return feats
 
 
@@ -159,11 +162,13 @@ if __name__ == '__main__':
     #print(pmi_dict['the', 'det'], pmi_dict['you', 'nsubj'])
     #print(pd.Series(pmi_dict).unstack(fill_value=0.0).head(10))
     sparsedf = to_sparse_df(pmi_dict)
-    #print(sparsedf)
+    print(sparsedf.head(10))
     #print(cosine_similarity(sparsedf.loc[['he', 'she', 'was']]))
-    red = svd_reduce(sparsedf, 10)
+    #red = svd_reduce(sparsedf, 10)
     #print(cosine_similarity(red.loc[['he', 'she', 'was']]))
-    dfeats = feats_by_dep(deps, red)
+    #dfeats = feats_by_dep(deps, red)
+    #dfeats = feats_by_dep(deps, sparsedf)
+    #print(dfeats.columns)
     #print(dfeats)
-    print(cosine_similarity([red.loc['he'], red.loc['to'],
-                            dfeats.loc['nsubj']]))
+    #print(cosine_similarity([red.loc['he'], red.loc['to'],
+    #                        dfeats.loc['nsubj']]))
