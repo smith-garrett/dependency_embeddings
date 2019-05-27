@@ -65,35 +65,40 @@ def get_joint_freqs(deps):
     return cts
 
 
-def calc_pmi(wfreq, dfreq, jfreq):
+#def calc_pmi(wfreq, dfreq, jfreq):
+def calc_pmi(wfreq, dfreq, jfreq, size):
     """Often throws divide-by-zero error, so this gets around that and sets
     -inf to zero.
     """
     with np.errstate(divide='ignore'):
-        pmi = np.log2(jfreq / (wfreq * dfreq))
+        #pmi = np.log2(jfreq / (wfreq * dfreq))
+        pmi = np.log2((jfreq * size) / (wfreq * dfreq))
         if pmi != -np.inf:
             return pmi
         else:
             return 0.0
 
 
-def calc_ppmi(wfreq, dfreq, jfreq):
-    return np.maximum(0, np.log2(jfreq / (wfreq * dfreq)))
+#def calc_ppmi(wfreq, dfreq, jfreq):
+def calc_ppmi(wfreq, dfreq, jfreq, size):
+    #return np.maximum(0, np.log2(jfreq / (wfreq * dfreq)))
+    return np.maximum(0, np.log2((jfreq * size) / (wfreq * dfreq)))
 
 
 def make_pmi_dict(deps, positive=True, smooth=None):
-    #words = sorted([item[-1] for item in deps])
-    #dtypes = sorted([item[0] for item in deps])
-    wfreqs = get_word_freqs(deps)
-    dfreqs = get_dep_freqs(deps, smooth)
-    jfreqs = get_joint_freqs(deps)
-    #pmidict = OrderedDict()
+    #wfreqs = get_word_freqs(deps)
+    wfreqs = Counter([item[-1] for item in deps])
+    #dfreqs = get_dep_freqs(deps, smooth)
+    dfreqs = Counter([item[0] for item in deps])
+    #jfreqs = get_joint_freqs(deps)
+    jfreqs = Counter([(item[0], item[-1]) for item in deps])
+    size = len(deps)
     pmidict = Counter()
     for d, w in jfreqs.keys():
         if positive:
-            pmidict[w, d] = calc_ppmi(wfreqs[w], dfreqs[d], jfreqs[d, w])
+            pmidict[w, d] = calc_ppmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size)
         else:
-            pmidict[w, d] = calc_pmi(wfreqs[w], dfreqs[d], jfreqs[d, w])
+            pmidict[w, d] = calc_pmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size)
     return pmidict
 
 
@@ -154,21 +159,21 @@ if __name__ == '__main__':
     #print(calc_pmi(wfreqs['the'], dfreqs['det'], jfreqs['det', 'the']))
     #print(calc_pmi(wfreqs['were'], dfreqs['nsubj'], jfreqs['nsubj', 'were']))
     #print(calc_pmi(wfreqs['was'], dfreqs['root'], jfreqs['root', 'was']))
-    pmi_dict = make_pmi_dict(deps, positive=False, smooth=0.75)
-    #print(*pmi_dict.most_common(10), sep='\n')
+    pmi_dict = make_pmi_dict(deps, positive=True, smooth=0.75)
+    print(*pmi_dict.most_common(10), sep='\n')
     #print(*pmi_dict.most_common()[-10:-1], sep='\n')
     #print(np.quantile(np.array(list(pmi_dict.values())),
     #                  [0.0, 0.25, 0.5, 0.75, 1.0]))
     #print(pmi_dict['the', 'det'], pmi_dict['you', 'nsubj'])
     #print(pd.Series(pmi_dict).unstack(fill_value=0.0).head(10))
     sparsedf = to_sparse_df(pmi_dict)
-    print(sparsedf.head(10))
+    #print(sparsedf.head(10))
     #print(cosine_similarity(sparsedf.loc[['he', 'she', 'was']]))
-    #red = svd_reduce(sparsedf, 10)
-    #print(cosine_similarity(red.loc[['he', 'she', 'was']]))
-    #dfeats = feats_by_dep(deps, red)
+    red = svd_reduce(sparsedf, 10)
+    print(cosine_similarity(red.loc[['he', 'she', 'was']]))
+    dfeats = feats_by_dep(deps, red)
     #dfeats = feats_by_dep(deps, sparsedf)
     #print(dfeats.columns)
     #print(dfeats)
-    #print(cosine_similarity([red.loc['he'], red.loc['to'],
-    #                        dfeats.loc['nsubj']]))
+    print(cosine_similarity([red.loc['he'], red.loc['to'],
+                            dfeats.loc['nsubj']]))
