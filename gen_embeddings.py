@@ -47,13 +47,15 @@ def calc_ppmi(wfreq, dfreq, jfreq, size):
     return np.maximum(0, np.log2((jfreq * size) / (wfreq * dfreq)))
 
 
-def make_pmi_dict(deps, positive=True):
+def make_pmi_dict(deps, positive=False):
     """Does the bulk of the work. Counts words, dependency types, and their
     joint occurences, and returns a dictionary of (P)PMI for each pair.
+    The positive argument is set to False by default, following rei2014looking.
     """
     wfreqs = Counter([item[-1] for item in deps])
     dfreqs = Counter([item[0] for item in deps])
     jfreqs = Counter([(item[0], item[-1]) for item in deps])
+    jfreqs = {k:v }
     size = len(deps)
     pmidict = Counter()
     for d, w in jfreqs.keys():
@@ -120,23 +122,25 @@ def feats_by_dep(deps, df):
 
 
 if __name__ == '__main__':
-    file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/naturalstories/parses/stanford/all-parses-aligned.txt.stanford'
+    #file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/naturalstories/parses/stanford/all-parses-aligned.txt.stanford'
+    file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown10.txt'
     deps = read_standford(file)
     #print(deps[0:10])
-    pmi_dict = make_pmi_dict(deps, positive=False)
-    print(*pmi_dict.most_common(10), sep='\n')
+    pmi_dict = make_pmi_dict(deps, positive=True)
+    #print(*pmi_dict.most_common(10), sep='\n')
     #print(*pmi_dict.most_common()[-10:-1], sep='\n')
-    print(np.quantile(np.array(list(pmi_dict.values())),
-                      [0.0, 0.25, 0.5, 0.75, 1.0]))
+    #print(np.quantile(np.array(list(pmi_dict.values())),
+    #                  [0.0, 0.25, 0.5, 0.75, 1.0]))
     #print(pmi_dict['the', 'det'], pmi_dict['you', 'nsubj'])
-    #print(pd.Series(pmi_dict).unstack(fill_value=0.0).head(10))
     sparsedf = to_sparse_df(pmi_dict)
-    #print(sparsedf.head(10))
-    #print(cosine_similarity(sparsedf.loc[['he', 'she', 'was']]))
-    red = svd_reduce(sparsedf, 10)
-    print(cosine_similarity(red.loc[['he', 'she', 'was']]))
+    #print(sparsedf.loc['he'], sparsedf.loc['she'])
+    print(cosine_similarity(sparsedf.loc[['he', 'she', 'was']]))
+    red = svd_reduce(sparsedf, 20)
+    #print(cosine_similarity(red.loc[['he', 'she', 'was']]))
     dfeats = feats_by_dep(deps, red)
     #dfeats = feats_by_dep(deps, sparsedf)
     #print(dfeats)
-    print(cosine_similarity([red.loc['he'], red.loc['to'],
-                            dfeats.loc['nsubj']]))
+    print(cosine_similarity(red.loc['he', 'she', 'cat', 'dog', 'to'].append(
+                            dfeats.loc['nsubj'])))
+    #print(cosine_similarity([sparsedf.loc['he'], sparsedf.loc['she'],
+    #                        sparsedf.loc['to'], dfeats.loc['nsubj']]))
