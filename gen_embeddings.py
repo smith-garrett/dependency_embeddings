@@ -142,6 +142,7 @@ if __name__ == '__main__':
     #file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/naturalstories/parses/stanford/all-parses-aligned.txt.stanford'
     # Doesn't:
     #file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown10.txt'
+    # Does
     file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown0.txt'
     deps = read_standford(file)
     pmi_dict = make_pmi_dict(deps, positive=False)
