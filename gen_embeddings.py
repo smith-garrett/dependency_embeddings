@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse.linalg import svds
+from warnings import warn
 
 
 def read_standford(file):
@@ -55,7 +56,6 @@ def make_pmi_dict(deps, positive=False):
     wfreqs = Counter([item[-1] for item in deps])
     dfreqs = Counter([item[0] for item in deps])
     jfreqs = Counter([(item[0], item[-1]) for item in deps])
-    jfreqs = {k:v }
     size = len(deps)
     pmidict = Counter()
     for d, w in jfreqs.keys():
@@ -108,7 +108,8 @@ def feats_by_dep(deps, df):
     if isinstance(df.columns[0], str):
         colnames = df.columns
     else:
-        colnames = ['f'+ str(i) for i in range(len(df.columns))]
+        #colnames = ['f'+ str(i) for i in range(len(df.columns))]
+        colnames = list(range(len(df.columns)))
     feats = pd.DataFrame(0, index=dtypes, columns=colnames)
     for i, dep in enumerate(dtypes):
         if i % (len(dtypes) // 10) == 0:
@@ -121,26 +122,34 @@ def feats_by_dep(deps, df):
     return feats
 
 
+def calc_similarity(words, attch):
+    """Calculate the cosine similarity between words and attachment sites.
+    """
+    #if all(words.columns == attch.columns):
+    #    return cosine_similarity(words.append(attch))
+    #else:
+    #    warn('Attachment site column names don\'t match word column names. Assuming word column names are the correct ones.')
+    #    attch.columns = words.columns
+    #return cosine_similarity(words.append(attch
+    nattch = attch.shape[0]
+    nwords = words.shape[0]
+    sims = cosine_similarity(words.append(attch))[0:nwords, -nattch:]
+    return pd.DataFrame(sims, columns=attch.index.values, index=words.index)
+
+
 if __name__ == '__main__':
+    # Gives NaN error in cosine_similarity
     #file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/naturalstories/parses/stanford/all-parses-aligned.txt.stanford'
-    file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown10.txt'
+    # Doesn't:
+    #file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown10.txt'
+    file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown0.txt'
     deps = read_standford(file)
-    #print(deps[0:10])
-    pmi_dict = make_pmi_dict(deps, positive=True)
-    #print(*pmi_dict.most_common(10), sep='\n')
-    #print(*pmi_dict.most_common()[-10:-1], sep='\n')
-    #print(np.quantile(np.array(list(pmi_dict.values())),
-    #                  [0.0, 0.25, 0.5, 0.75, 1.0]))
-    #print(pmi_dict['the', 'det'], pmi_dict['you', 'nsubj'])
+    pmi_dict = make_pmi_dict(deps, positive=False)
     sparsedf = to_sparse_df(pmi_dict)
-    #print(sparsedf.loc['he'], sparsedf.loc['she'])
-    print(cosine_similarity(sparsedf.loc[['he', 'she', 'was']]))
     red = svd_reduce(sparsedf, 20)
-    #print(cosine_similarity(red.loc[['he', 'she', 'was']]))
-    dfeats = feats_by_dep(deps, red)
-    #dfeats = feats_by_dep(deps, sparsedf)
-    #print(dfeats)
-    print(cosine_similarity(red.loc['he', 'she', 'cat', 'dog', 'to'].append(
-                            dfeats.loc['nsubj'])))
-    #print(cosine_similarity([sparsedf.loc['he'], sparsedf.loc['she'],
-    #                        sparsedf.loc['to'], dfeats.loc['nsubj']]))
+    dfeats = feats_by_dep(deps, sparsedf)
+    dfeatsred = feats_by_dep(deps, red)
+    print(calc_similarity(red.loc[['he', 'she', 'cat', 'dog',]],
+                          dfeatsred.loc[['nsubj', 'obj']]))
+    print(calc_similarity(sparsedf.loc[['he', 'she', 'cat', 'dog']],
+                          dfeats.loc[['nsubj', 'obj']]))
