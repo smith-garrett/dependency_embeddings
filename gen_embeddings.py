@@ -81,23 +81,15 @@ def svd_reduce(spdf, k=None):
 
 
 def calc_dep_feats(deps, df):
-    """For each word, need a feature vector for each of its dependents. The
-    feature vector should be the average of the head vectors of all the words
-    that appeared as that dependent, weighted by how often each word was that
-    dependent.
-    Actually, I don't know if weighting makes sense, or if it's already in the
-    (P)PMI's...
-    IDEA: pass in a list of words and the desired dependents you want to
-    consider. For the Cunnings & Sturt data, this will be more than fine, and
-    much faster.
+    """For each word, need a feature vector for each of its dependents. The feature vector should be the average of the head vectors of all the words that appeared as that dependent, weighted by how often each word was that dependent.
+    Actually, I don't know if weighting makes sense, or if it's already in the (P)PMI's...
+    IDEA: pass in a list of words and the desired dependents you want to consider. For the Cunnings & Sturt data, this will be more than fine, and much faster.
     """
     return
 
 
 def feats_by_dep(deps, df):
-    """Creates retrieval cues/dependent features by dependency type. Thes are
-    *not* specific to lexical items. Instead, we just get the average over all
-    head features of words that appear as a given dependency type.
+    """Creates retrieval cues/dependent features by dependency type. Thes are *not* specific to lexical items. Instead, we just get the average over all head features of words that appear as a given dependency type.
     """
     dtypes = list(set([d[0] for d in deps]))
     feats = pd.DataFrame(0, index=dtypes, columns=df.columns)
@@ -113,8 +105,7 @@ def feats_by_dep(deps, df):
 
 
 def calc_similarity(words, attch, wdf, adf):
-    """Calculate the cosine similarity between words and attachment sites. Takes
-    a list of words, a list of dependent types, a words data frame, and an attachment feature data frame subsetted with the desired dependency type(s).
+    """Calculate the cosine similarity between words and attachment sites. Takes a list of words, a list of dependent types, a words data frame, and an attachment feature data frame subsetted with the desired dependency type(s).
     """
     assert isinstance(words, list), 'Words should be in a list.'
     assert isinstance(attch, list), 'Dependent types should be in a list.'
