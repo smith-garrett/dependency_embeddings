@@ -1,10 +1,6 @@
-# Command line script for taking Stanford parses and outputting a text file
-# containing PPMI word embeddings. These are "head" feature representations in
-# the sense of Smith & Tabor (2018; ICCM), i.e., the features used for a word
-# when it attaches as the dependent of another word. In addition to the word
-# embeddings, the script also returns the average word embedding of the words
-# that appear as the dependent of another words, i.e., features that a word is
-# "looking for" in its dependent(s).
+"""Command line Python module for taking Stanford parses and outputting a text
+file containing (P)PMI word embeddings. These are "head" feature representations in the sense of Smith & Tabor (2018; ICCM), i.e., the features used for a word when it attaches as the dependent of another word. In addition to the word embeddings, the script also returns the average word embedding of the words that appear as the dependent of another words, i.e., features that a word is looking for" in its dependent(s).
+"""
 
 # Tested w/ Python 3.7
 
@@ -15,7 +11,6 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse.linalg import svds
-from warnings import warn
 
 
 def read_standford(file):
@@ -105,12 +100,7 @@ def feats_by_dep(deps, df):
     head features of words that appear as a given dependency type.
     """
     dtypes = list(set([d[0] for d in deps]))
-    if isinstance(df.columns[0], str):
-        colnames = df.columns
-    else:
-        #colnames = ['f'+ str(i) for i in range(len(df.columns))]
-        colnames = list(range(len(df.columns)))
-    feats = pd.DataFrame(0, index=dtypes, columns=colnames)
+    feats = pd.DataFrame(0, index=dtypes, columns=df.columns)
     for i, dep in enumerate(dtypes):
         if i % (len(dtypes) // 10) == 0:
             print('{}%\r'.format(np.round(i/len(dtypes) * 100)), end='')
@@ -122,27 +112,25 @@ def feats_by_dep(deps, df):
     return feats
 
 
-def calc_similarity(words, attch):
-    """Calculate the cosine similarity between words and attachment sites.
+def calc_similarity(words, attch, wdf, adf):
+    """Calculate the cosine similarity between words and attachment sites. Takes
+    a list of words, a list of dependent types, a words data frame, and an attachment feature data frame subsetted with the desired dependency type(s).
     """
-    #if all(words.columns == attch.columns):
-    #    return cosine_similarity(words.append(attch))
-    #else:
-    #    warn('Attachment site column names don\'t match word column names. Assuming word column names are the correct ones.')
-    #    attch.columns = words.columns
-    #return cosine_similarity(words.append(attch
-    nattch = attch.shape[0]
-    nwords = words.shape[0]
-    sims = cosine_similarity(words.append(attch))[0:nwords, -nattch:]
-    return pd.DataFrame(sims, columns=attch.index.values, index=words.index)
+    assert isinstance(words, list), 'Words should be in a list.'
+    assert isinstance(attch, list), 'Dependent types should be in a list.'
+    nattch = len(attch)
+    nwords = len(words)
+    assert all([wdf.index.contains(w) for w in words]), \
+            'Not all words in word dataframe.'
+    assert all([adf.index.contains(a) for a in attch]), \
+            'Not all words in word dataframe.'
+    wvecs = wdf.loc[words]
+    avecs = adf.loc[attch]
+    sims = cosine_similarity(wvecs.append(avecs))[0:nwords, -nattch:]
+    return pd.DataFrame(sims, columns=attch, index=words)
 
 
 if __name__ == '__main__':
-    # Gives NaN error in cosine_similarity
-    #file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/naturalstories/parses/stanford/all-parses-aligned.txt.stanford'
-    # Doesn't:
-    #file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown10.txt'
-    # Does
     file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown0.txt'
     deps = read_standford(file)
     pmi_dict = make_pmi_dict(deps, positive=False)
@@ -150,7 +138,7 @@ if __name__ == '__main__':
     red = svd_reduce(sparsedf, 20)
     dfeats = feats_by_dep(deps, sparsedf)
     dfeatsred = feats_by_dep(deps, red)
-    print(calc_similarity(red.loc[['he', 'she', 'cat', 'dog',]],
-                          dfeatsred.loc[['nsubj', 'obj']]))
-    print(calc_similarity(sparsedf.loc[['he', 'she', 'cat', 'dog']],
-                          dfeats.loc[['nsubj', 'obj']]))
+    print(calc_similarity(['he', 'she', 'dog',], ['nsubj', 'obj'],
+                          red, dfeatsred))
+    print(calc_similarity(['he', 'she', 'cat', 'dog',], ['nsubj', 'obj'],
+                          sparsedf, dfeats))
