@@ -11,15 +11,22 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse.linalg import svds
+import os
+import fileinput
 
 
-def read_standford(file):
-    with open(file, 'r') as f:
+def read_standford(files):
+    """Takes a (list of) file(s) and returns a nicely formatted set of
+    dependent-governor-dependent triples.
+    """
+    with fileinput.input(files=files) as f:
         deps = []
         for line in f:
             line = line.lower()
             line = re.sub('[0-9]+', '', line)
             curr = re.findall("[\w]+", line)
+            # Sometimes the parser was returning dependency n-tuples, but we
+            # only want triples for simplicity
             if len(curr) == 3:
                 deps.append(curr)
     return deps
@@ -123,13 +130,25 @@ def calc_similarity(words, attch, wdf, adf):
 
 if __name__ == '__main__':
     file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown0.txt'
-    deps = read_standford(file)
-    pmi_dict = make_pmi_dict(deps, positive=False)
+    files = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in
+             os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
+    #print(files)
+#    for f in files:
+#        print(f[-6:])
+#        read_standford(files)
+#    try:
+    deps = read_standford(files)
+    #except UnicodeDecodeError:
+    #    print(files[8])
+#    deps = read_standford(file)
+    # PPMI embeddings really do make more sense...
+    pmi_dict = make_pmi_dict(deps, positive=True)
+    #print(pmi_dict.most_common(10))
     sparsedf = to_sparse_df(pmi_dict)
-    red = svd_reduce(sparsedf, 20)
+#    red = svd_reduce(sparsedf, 20)
     dfeats = feats_by_dep(deps, sparsedf)
-    dfeatsred = feats_by_dep(deps, red)
-    print(calc_similarity(['he', 'she', 'dog',], ['nsubj', 'obj'],
-                          red, dfeatsred))
+#    dfeatsred = feats_by_dep(deps, red)
+#    print(calc_similarity(['he', 'she', 'dog',], ['nsubj', 'obj'],
+#                          red, dfeatsred))
     print(calc_similarity(['he', 'she', 'cat', 'dog',], ['nsubj', 'obj'],
                           sparsedf, dfeats))
