@@ -87,12 +87,32 @@ def svd_reduce(spdf, k=None):
     return mat
 
 
-def calc_dep_feats(deps, df):
-    """For each word, need a feature vector for each of its dependents. The feature vector should be the average of the head vectors of all the words that appeared as that dependent, weighted by how often each word was that dependent.
-    Actually, I don't know if weighting makes sense, or if it's already in the (P)PMI's...
-    IDEA: pass in a list of words and the desired dependents you want to consider. For the Cunnings & Sturt data, this will be more than fine, and much faster.
+def lex_spec_feats(pairs, deps, df):
+    """For each governor-dependency tuple, calculate the average feature vector
+    across all words that appeared as that type of dependent of the governor.
+    Takes a list of tuples of pairs, the dependencies from the corpus, and a
+    dataframe containing the word feature vectors/head features.
     """
-    return
+    print('Calculating lexically specific dependent features...')
+    dtypes = list(set([d[0] for d in deps]))
+    #desired = [j for _, j in pairs]
+    #governors = [i for i, _ in pairs]
+    #feats = pd.DataFrame(0, index=dtypes, columns=df.columns)
+    lexspec = {}
+    #for g in governors:
+    for g, dep in pairs:
+        print('Working on pair {}-{}.'.format(g, dep))
+        #for dep in desired:
+        words = list(set([w[-1] for w in deps
+                          if w[0] == dep and w[1] == g]))
+        nwords = len(words)
+        vec = np.zeros(len(dtypes))
+        for word in words:
+            vec += df.loc[word].values / nwords
+        lexspec['-'.join([g, dep])] = vec
+        #print(lexspec.items())
+    print('Done.')
+    return pd.DataFrame.from_dict(lexspec, orient='index', columns=dtypes)
 
 
 def feats_by_dep(deps, df):
@@ -104,8 +124,9 @@ def feats_by_dep(deps, df):
         if i % (len(dtypes) // 10) == 0:
             print('{}%\r'.format(np.round(i/len(dtypes) * 100)), end='')
         words = list(set([w[-1] for w in deps if w[0] == dep]))
+        nwords = len(words)
         for word in words:
-            feats.loc[dep] += df.loc[word].values / len(words)
+            feats.loc[dep] += df.loc[word].values / nwords
     print('', end='')
     print('Done.')
     return feats
@@ -146,9 +167,11 @@ if __name__ == '__main__':
     #print(pmi_dict.most_common(10))
     sparsedf = to_sparse_df(pmi_dict)
 #    red = svd_reduce(sparsedf, 20)
-    dfeats = feats_by_dep(deps, sparsedf)
+    #dfeats = feats_by_dep(deps, sparsedf)
 #    dfeatsred = feats_by_dep(deps, red)
 #    print(calc_similarity(['he', 'she', 'dog',], ['nsubj', 'obj'],
 #                          red, dfeatsred))
-    print(calc_similarity(['he', 'she', 'cat', 'dog',], ['nsubj', 'obj'],
-                          sparsedf, dfeats))
+    #print(calc_similarity(['he', 'she', 'cat', 'dog',], ['nsubj', 'obj'],
+    #                      sparsedf, dfeats))
+    pairs = [('saw', 'nsubj'), ('saw', 'obj')]
+    lsfeats = lex_spec_feats(pairs, deps, sparsedf)
