@@ -2,3 +2,5 @@ __pycache__/
 dist/
 sdist/
 .ipynb_checkpoints
+*.pyc
+*.egg-info
