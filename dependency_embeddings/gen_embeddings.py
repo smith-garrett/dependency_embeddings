@@ -13,9 +13,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse.linalg import svds
 import os
 import fileinput
+import gzip
 
 
-def read_standford(files):
+def read_standford(files, outpath=None):
     """Takes a (list of) file(s) and returns a nicely formatted set of
     dependent-governor-dependent triples.
     """
@@ -68,10 +69,16 @@ def make_pmi_dict(deps, positive=False):
     return pmidict
 
 
-def to_sparse_df(pmidict):
-    """Converts from dict to sparse pandas DataFrame.
+def to_sparse_df(pmidict, outpath=None):
+    """Converts from dict to sparse pandas DataFrame. If an output file path
+    is provided, it saves the sparse data frame as a gzip-compressed .csv
+    file.
     """
-    return pd.Series(pmidict).unstack(fill_value=0.0).to_sparse()
+    sdf = pd.Series(pmidict).unstack(fill_value=0.0).to_sparse()
+    if outpath:
+        sdf.to_csv(os.path.join(outpath, 'lexical_features.csv.gz'),
+                   compression='gzip')
+    return sdf
 
 
 def svd_reduce(spdf, k=None):
@@ -87,19 +94,14 @@ def svd_reduce(spdf, k=None):
     return mat
 
 
-def lex_spec_feats(pairs, deps, df):
-    """For each governor-dependency tuple, calculate the average feature vector
-    across all words that appeared as that type of dependent of the governor.
-    Takes a list of tuples of pairs, the dependencies from the corpus, and a
-    dataframe containing the word feature vectors/head features.
+def lex_spec_feats(pairs, deps, df, outpath=None):
+    """For each governor-dependency tuple, calculate the average feature vector across all words that appeared as that type of dependent of the
+    governor. Takes a list of tuples of pairs, the dependencies from the
+    corpus, and adataframe containing the word feature vectors/head features.
     """
     print('Calculating lexically specific dependent features...')
-    dtypes = list(set([d[0] for d in deps]))
-    #desired = [j for _, j in pairs]
-    #governors = [i for i, _ in pairs]
-    #feats = pd.DataFrame(0, index=dtypes, columns=df.columns)
+    dtypes = df.columns
     lexspec = {}
-    #for g in governors:
     for g, dep in pairs:
         print('Working on pair {}-{}.'.format(g, dep))
         #for dep in desired:
@@ -110,9 +112,13 @@ def lex_spec_feats(pairs, deps, df):
         for word in words:
             vec += df.loc[word].values / nwords
         lexspec['-'.join([g, dep])] = vec
-        #print(lexspec.items())
+    retcues = pd.DataFrame.from_dict(lexspec, orient='index', columns=dtypes)
+    if outpath:
+        print('Saving to file.')
+        retcues.to_csv(os.path.join(outpath, 'retrieval_cues.csv.gz'),
+                   compression='gzip')
     print('Done.')
-    return pd.DataFrame.from_dict(lexspec, orient='index', columns=dtypes)
+    return retcues
 
 
 def feats_by_dep(deps, df):
@@ -150,9 +156,9 @@ def calc_similarity(words, attch, wdf, adf):
 
 
 if __name__ == '__main__':
-    file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/parsedbrown0.txt'
+    file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/parsedbrown0.txt'
     files = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in
-             os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/GenEmbeddings/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
+             os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
     #print(files)
 #    for f in files:
 #        print(f[-6:])
@@ -165,13 +171,17 @@ if __name__ == '__main__':
     # PPMI embeddings really do make more sense...
     pmi_dict = make_pmi_dict(deps, positive=True)
     #print(pmi_dict.most_common(10))
-    sparsedf = to_sparse_df(pmi_dict)
-#    red = svd_reduce(sparsedf, 20)
+    sparsedf = to_sparse_df(pmi_dict, outpath='/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/')
+    red = svd_reduce(sparsedf, 15)
     #dfeats = feats_by_dep(deps, sparsedf)
 #    dfeatsred = feats_by_dep(deps, red)
 #    print(calc_similarity(['he', 'she', 'dog',], ['nsubj', 'obj'],
 #                          red, dfeatsred))
     #print(calc_similarity(['he', 'she', 'cat', 'dog',], ['nsubj', 'obj'],
     #                      sparsedf, dfeats))
-    pairs = [('saw', 'nsubj'), ('saw', 'obj')]
-    lsfeats = lex_spec_feats(pairs, deps, sparsedf)
+    pairs = [('read', 'nsubj'), ('read', 'obj')]
+    lsfeats = lex_spec_feats(pairs, deps, sparsedf)#, outpath='/Users/garrettsmith/Desktop/')
+    #lsfeats = lex_spec_feats(pairs, deps, red)
+    #print(lsfeats)
+    print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], sparsedf, lsfeats))
+    #print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], red, lsfeats))
