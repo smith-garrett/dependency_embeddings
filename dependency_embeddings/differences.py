@@ -14,14 +14,6 @@ from itertools import filterfalse
 from gen_embeddings import *
 
 
-#def read_cs(filename):
-    #df = pd.read_csv(filename)
-    #verbs = list(set(df['verb'].values))
-    #nouns = (list(set(df['target'].values)) +
-    #         list(set(df['distractor'].values)))
-    #return verbs, nouns
-
-
 def get_missing(df, memberlist):
     """Returns a list of words that are missing from the provided dataframe.
     """
@@ -75,30 +67,42 @@ def sim_to_df(simdf, matdf):
 
 
 if __name__ == '__main__':
-    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
-    csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtMaterials.csv'
+    #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
+    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpusLemmas/') for f in fn if f.endswith('.txt')])
+    #csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtMaterials.csv'
+    csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtLemmas.csv'
 
     # Setting up basic features
     deps = read_standford(corpfiles)
     ppmi = make_pmi_dict(deps, positive=True)
     sdf = to_sparse_df(ppmi)
 
+    # SVD to reduce
+    red = svd_reduce(sdf, k=len(sdf.columns)//2, sym=True)
+
     # Getting C&S's materials
     csmat = pd.read_csv(csfile)
+    csmat.head()
     #verbs, nouns = read_cs(csfile)
 
     # Calculating retrieval cues for each verb
     pairs = [(i, 'obj') for i in set(csmat.verb.values)]
-    vfeats = lex_spec_feats(pairs, deps, sdf)
+    #vfeats = lex_spec_feats(pairs, deps, sdf)
+    vfeats = lex_spec_feats(pairs, deps, red)
 
     # Getting any missing words
-    missing = get_missing(sdf, set(csmat.distractor.values))
-    missing += get_missing(sdf, set(csmat.target.values))
+    #missing = get_missing(sdf, set(csmat.distractor.values))
+    missing = get_missing(red, set(csmat.distractor.values))
+    #missing += get_missing(sdf, set(csmat.target.values))
+    missing += get_missing(red, set(csmat.target.values))
 
     # Getting similarities
+    #sim = get_similarity(list(set(csmat.target)) +
+    #                     list(set(csmat.distractor)), vfeats.index.values,
+    #                     sdf, vfeats, missing)
     sim = get_similarity(list(set(csmat.target)) +
                          list(set(csmat.distractor)), vfeats.index.values,
-                         sdf, vfeats, missing)
+                         red, vfeats, missing)
     #print(sim.head())
     #print(sim.loc['letter', 'shattered-obj'], type(sim.loc['letter', 'shattered-obj']))
 
@@ -107,4 +111,4 @@ if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
     print(fulldf.head(10))
     print(fulldf.loc[fulldf['tplaus'] == 'implaus'].head())
-    fulldf.to_csv('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtFeatMatch.csv', na_rep='NA')
+    fulldf.to_csv('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtLemmasFeatMatch.csv', na_rep='NA')

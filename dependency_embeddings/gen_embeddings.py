@@ -81,13 +81,16 @@ def to_sparse_df(pmidict, outpath=None):
     return sdf
 
 
-def svd_reduce(spdf, k=None):
+def svd_reduce(spdf, k=None, sym=False):
     """Performs dimensionality reduction using singular value decomposition of
-    the sparse DataFrame -> U*Sigma*V. Returns U*Sigma as the rank-k word
+    the sparse DataFrame -> U*Sigma*V. Returns U*Sigma^0.5 as the rank-k word
     representations (levy2015improving).
     """
     U, S, _ = svds(spdf, k=k)
-    mat = U.dot(np.diag(S))
+    if sym:
+        mat = U.dot(np.diag(S)**0.5)
+    else:
+        mat = U.dot(np.diag(S))
     mat = pd.SparseDataFrame(mat)
     mat.index = spdf.index.values
     #mat.columns = spdf.columns.values
