@@ -33,25 +33,36 @@ def read_standford(files, outpath=None):
     return deps
 
 
-def calc_pmi(wfreq, dfreq, jfreq, size):
+def calc_pmi(wfreq, dfreq, jfreq, size, sized):
     """This implementation gets around DivideByZero errors and sets
-    -inf to zero.
+    -inf to zero. Implements smoothing recommendation of Levy et al. (2015).
     """
+    alpha = 0.75
     with np.errstate(divide='ignore'):
-        pmi = np.log2((jfreq * size) / (wfreq * dfreq))
+        #pmi = np.log2((jfreq * size) / (wfreq * dfreq))
+        pj = jfreq / size
+        pw = wfreq / size
+        pd = dfreq**alpha / sized**alpha
+        pmi = np.log2(pj / (pw * pd))
         if pmi != -np.inf:
             return pmi
         else:
             return 0.0
 
 
-def calc_ppmi(wfreq, dfreq, jfreq, size):
-    """Only keeps the positive PMI.
+def calc_ppmi(wfreq, dfreq, jfreq, size, sized):
+    """Only keeps the positive PMI. Implements smoothing recommendation of
+    Levy et al. (2015).
     """
-    return np.maximum(0, np.log2((jfreq * size) / (wfreq * dfreq)))
+    alpha=0.75
+    pj = jfreq / size
+    pw = wfreq / size
+    pd = dfreq**alpha / sized**alpha
+    #return np.maximum(0, np.log2((jfreq * size) / (wfreq * dfreq)))
+    return np.maximum(0, np.log2(pj / (pw * pd)))
 
 
-def make_pmi_dict(deps, positive=False):
+def make_pmi_dict(deps, positive=True):
     """Does the bulk of the work. Counts words, dependency types, and their
     joint occurences, and returns a dictionary of (P)PMI for each pair.
     The positive argument is set to False by default, following rei2014looking.
@@ -60,12 +71,13 @@ def make_pmi_dict(deps, positive=False):
     dfreqs = Counter([item[0] for item in deps])
     jfreqs = Counter([(item[0], item[-1]) for item in deps])
     size = len(deps)
+    sized = sum(dfreqs.values())
     pmidict = Counter()
     for d, w in jfreqs.keys():
         if positive:
-            pmidict[w, d] = calc_ppmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size)
+            pmidict[w, d] = calc_ppmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size, sized)
         else:
-            pmidict[w, d] = calc_pmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size)
+            pmidict[w, d] = calc_pmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size, sized)
     return pmidict
 
 
@@ -162,19 +174,14 @@ if __name__ == '__main__':
     file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/parsedbrown0.txt'
     files = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in
              os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
-    #print(files)
-#    for f in files:
-#        print(f[-6:])
-#        read_standford(files)
-#    try:
+
     deps = read_standford(files)
-    #except UnicodeDecodeError:
-    #    print(files[8])
-#    deps = read_standford(file)
+    #deps = read_standford(file)
+    
     # PPMI embeddings really do make more sense...
     pmi_dict = make_pmi_dict(deps, positive=True)
     #print(pmi_dict.most_common(10))
-    sparsedf = to_sparse_df(pmi_dict, outpath='/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/')
+    sparsedf = to_sparse_df(pmi_dict)#, outpath='/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/')
     red = svd_reduce(sparsedf, 15)
     #dfeats = feats_by_dep(deps, sparsedf)
 #    dfeatsred = feats_by_dep(deps, red)
