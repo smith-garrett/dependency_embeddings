@@ -26,12 +26,14 @@ def get_missing(df, memberlist):
 
 
 def get_similarity(words, attch, featdf, cuedf, missing):
-    #featsub = featdf[featdf.index.isin(tuple(missing))]
-    #cuesub = cuedf[cuedf.index.isin(tuple(missing))]
+    """Removes words missing from corpus and calculates similarities using
+    the remaining subset of words.
+    """
     wordssub = list(set([w for w in words if w not in missing]))
-    #wordssub = list(filterfalse(lambda x: x not in missing, words))
+    # I DON'T THINK THIS IS WHERE I NEED TO ANPACKEN
     attchsub = list(set(filterfalse(lambda x: any(x.startswith(m) for m in
-                                              missing), attch)))
+                                              missing) and
+                                    cuedf.loc[x].ne(np.NaN).all(), attch)))
     return calc_similarity(wordssub, attchsub, featdf, cuedf)
 
 
@@ -46,7 +48,8 @@ def sim_to_df(simdf, matdf):
     fulldf['within_item_diff'] = 0.0
     for verb in set(fulldf['verb']):
         # WARNING: Hard-coded attch. type!!
-        vattch = verb + '-obj'
+        #vattch = verb + '-obj'
+        vattch = verb + '-dobj'  # For Penn treebank!
         for targ in set(fulldf.loc[fulldf['verb'] == verb, 'target']):
             try:
                 fulldf.loc[(fulldf['verb'] == verb) & (fulldf['target'] ==
@@ -67,39 +70,53 @@ def sim_to_df(simdf, matdf):
 
 
 if __name__ == '__main__':
-    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
+    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/PennDep/') for f in fn if f.endswith('.txt')])
+    #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
     #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpusLemmas/') for f in fn if f.endswith('.txt')])
     csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtMaterials.csv'
     #csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtLemmas.csv'
 
     # Setting up basic features
-    deps = read_standford(corpfiles)
-    ppmi = make_pmi_dict(deps, positive=True)
-    sdf = to_sparse_df(ppmi)
+    print('Reading dependency files...')
+    deps = read_standford(corpfiles[0])
+    print('Making PPMI matrix...')
+    ppmi = make_pmi_dict(deps, positive=True, outpath='~/Desktop')
+    #ppmi = make_pmi_dict(deps, positive=False)  # Trying out w/ PTB
+    #sdf = to_sparse_df(ppmi)
 
     # SVD to reduce
-    #red = svd_reduce(sdf, k=len(sdf.columns)//2, sym=True)
+    #red = svd_reduce(ppmi, k=len(sdf.columns)//2, sym=True)
 
     # Getting C&S's materials
+    print('Loading materials from Cunnings & Sturt...')
     csmat = pd.read_csv(csfile)
-    csmat.head()
+    #csmat.head()
     #verbs, nouns = read_cs(csfile)
 
     # Calculating retrieval cues for each verb
-    pairs = [(i, 'obj') for i in set(csmat.verb.values)]
-    vfeats = lex_spec_feats(pairs, deps, sdf)
+    print('Calculating retrieval cues...')
+    #pairs = [(i, 'obj') for i in set(csmat.verb.values)]
+    # When using Penn treebank, it's 'dobj', not 'obj'
+    pairs = [(i, 'dobj') for i in set(csmat.verb.values)]
+    vfeats = lex_spec_feats(pairs, deps, ppmi, outpath='~/Desktop')
     #vfeats = lex_spec_feats(pairs, deps, red)
+    pd.set_option('display.max_columns', None)
+    #print(vfeats)
 
     # Getting any missing words
-    missing = get_missing(sdf, set(csmat.distractor.values))
+    # I THINK THIS IS WHERE I SHOULD FIDDLE AROUND
+    missing = get_missing(ppmi, set(csmat.distractor.values))
     #missing = get_missing(red, set(csmat.distractor.values))
-    missing += get_missing(sdf, set(csmat.target.values))
+    missing += get_missing(ppmi, set(csmat.target.values))
+    #missing += get_missing(red, set(csmat.target.values))
+    #missing += get_missing(vfeats, set(csmat.target.values))
     #missing += get_missing(red, set(csmat.target.values))
 
     # Getting similarities
+    print('Getting similarities...')
     sim = get_similarity(list(set(csmat.target)) +
                          list(set(csmat.distractor)), vfeats.index.values,
-                         sdf, vfeats, missing)
+                         ppmi, vfeats, missing)
     #sim = get_similarity(list(set(csmat.target)) +
     #                     list(set(csmat.distractor)), vfeats.index.values,
     #                     red, vfeats, missing)
@@ -108,7 +125,7 @@ if __name__ == '__main__':
 
     # Putting similarities into a the data frame
     fulldf = sim_to_df(sim, csmat)
-    pd.set_option('display.max_columns', None)
-    print(fulldf.head(10))
-    print(fulldf.loc[fulldf['tplaus'] == 'implaus'].head())
-    fulldf.to_csv('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtFeatMatch.csv', na_rep='NA')
+    #print(fulldf.head(10))
+    #print(fulldf.loc[fulldf['tplaus'] == 'implaus'].head())
+    print('Saving to file...')
+    fulldf.to_csv('/Users/garrettsmith/Desktop/CunningsSturtFeatMatchPennNewTest.csv', na_rep='NA')

@@ -7,6 +7,7 @@ file containing (P)PMI word embeddings. These are "head" feature representations
 
 import re
 from collections import Counter, OrderedDict
+from itertools import product
 import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
@@ -62,35 +63,70 @@ def calc_ppmi(wfreq, dfreq, jfreq, size, sized):
     return np.maximum(0, np.log2(pj / (pw * pd)))
 
 
-def make_pmi_dict(deps, positive=True):
-    """Does the bulk of the work. Counts words, dependency types, and their
-    joint occurences, and returns a dictionary of (P)PMI for each pair.
-    The positive argument is set to False by default, following rei2014looking.
+def make_pmi_dict(deps, positive=True, outpath=None):
+    """Based on Jurafsky & Martin (2019), Ch. 6. Includes context smoothing.
     """
-    wfreqs = Counter([item[-1] for item in deps])
-    dfreqs = Counter([item[0] for item in deps])
-    jfreqs = Counter([(item[0], item[-1]) for item in deps])
-    size = len(deps)
-    sized = sum(dfreqs.values())
-    pmidict = Counter()
-    for d, w in jfreqs.keys():
-        if positive:
-            pmidict[w, d] = calc_ppmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size, sized)
-        else:
-            pmidict[w, d] = calc_pmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size, sized)
-    return pmidict
-
-
-def to_sparse_df(pmidict, outpath=None):
-    """Converts from dict to sparse pandas DataFrame. If an output file path
-    is provided, it saves the sparse data frame as a gzip-compressed .csv
-    file.
-    """
-    sdf = pd.Series(pmidict).unstack(fill_value=0.0).to_sparse()
+    alpha = 0.75  # context smoothing exponent
+    df = pd.DataFrame(deps, columns=['DepType', 'Head', 'Dep'])
+    ctmat = pd.crosstab(df.Dep, df.DepType)
+    pjoint = ctmat / np.sum(ctmat.values)
+    pword = ctmat.sum(axis=1) / np.sum(ctmat.values)
+    pdeptype = ctmat.sum(axis=0)**alpha / np.sum(ctmat.values**alpha)
+    pmimat = ctmat.copy()
+    for w in pmimat.index:
+        for d in pmimat.columns:
+            with np.errstate(divide='ignore'):
+                pmi = np.log2(pjoint.loc[w, d] / (pword.loc[w] *
+                                                  pdeptype.loc[d]))
+            if positive:
+                pmimat.loc[w, d] = np.maximum(0, pmi)
+            else:
+                if pmi != -np.inf:
+                    pmimat.loc[w, d] = pmi
+                else:
+                    pmimat.loc[w, d] = 0.0
     if outpath:
-        sdf.to_csv(os.path.join(outpath, 'lexical_features.csv.gz'),
-                   compression='gzip')
-    return sdf
+        pmimat.to_csv(os.path.join(outpath, 'lexical_features.csv.gz'),
+               compression='gzip')
+    return(pmimat.to_sparse())
+
+
+#def make_pmi_dict(deps, positive=True):
+#    """Does the bulk of the work. Counts words, dependency types, and their
+#    joint occurences, and returns a dictionary of (P)PMI for each pair.
+#    The positive argument is set to False by default, following rei2014looking.
+#    """
+#    wfreqs = Counter([item[-1] for item in deps])
+#    dfreqs = Counter([item[0] for item in deps])
+#    jfreqs = Counter([(item[0], item[-1]) for item in deps])
+#    size = len(deps)
+#    sized = sum(dfreqs.values())
+#    pmidict = Counter()
+#    for d, w in jfreqs.keys():
+#        if positive:
+#            pmidict[w, d] = calc_ppmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size, sized)
+#        else:
+#            pmidict[w, d] = calc_pmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size, sized)
+    #fullpairs = product([w for _, w in jfreqs.keys()], [d for d, _ in jfreqs.keys()])
+    #unusedpairs = set(fullpairs) -
+    #for pair in fullpairs:
+#        if pair not in pmidict.keys():
+#            pmidict[pair[0], pair[1]] = 0
+#    return pmidict
+
+
+#def to_sparse_df(pmidict, outpath=None):
+#    """Converts from dict to sparse pandas DataFrame. If an output file path
+#    is provided, it saves the sparse data frame as a gzip-compressed .csv
+#    file.
+#    """
+#    # Filling unknowns with 0s here is not right!!
+#    #sdf = pd.Series(pmidict).unstack(fill_value=0.0).to_sparse()
+#    sdf = pd.Series(pmidict).unstack().to_sparse()
+#    if outpath:
+#        sdf.to_csv(os.path.join(outpath, 'lexical_features.csv.gz'),
+#                   compression='gzip')
+#    return sdf
 
 
 def svd_reduce(spdf, k=None, sym=False):
@@ -112,20 +148,23 @@ def svd_reduce(spdf, k=None, sym=False):
 def lex_spec_feats(pairs, deps, df, outpath=None):
     """For each governor-dependency tuple, calculate the average feature vector across all words that appeared as that type of dependent of the
     governor. Takes a list of tuples of pairs, the dependencies from the
-    corpus, and adataframe containing the word feature vectors/head features.
+    corpus, and a dataframe containing the word feature vectors/head features.
     """
     print('Calculating lexically specific dependent features...')
     dtypes = df.columns
     lexspec = {}
     for g, dep in pairs:
         print('Working on pair {}-{}.'.format(g, dep))
-        #for dep in desired:
         words = list(set([w[-1] for w in deps
                           if w[0] == dep and w[1] == g]))
         nwords = len(words)
-        vec = np.zeros(len(dtypes))
-        for word in words:
-            vec += df.loc[word].values / nwords
+        if nwords == 0:
+            print('{}-{} did not appear in the corpus'.format(g, dep))
+            vec = np.full(len(dtypes), np.NaN)
+        else:
+            vec = np.zeros(len(dtypes))
+            for word in words:
+                vec += df.loc[word].values / nwords
         lexspec['-'.join([g, dep])] = vec
     retcues = pd.DataFrame.from_dict(lexspec, orient='index', columns=dtypes)
     if outpath:
@@ -175,23 +214,23 @@ if __name__ == '__main__':
     files = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in
              os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
 
-    deps = read_standford(files)
-    #deps = read_standford(file)
-    
+    #deps = read_standford(files)
+    deps = read_standford(file)
+
     # PPMI embeddings really do make more sense...
     pmi_dict = make_pmi_dict(deps, positive=True)
-    #print(pmi_dict.most_common(10))
-    sparsedf = to_sparse_df(pmi_dict)#, outpath='/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/')
-    red = svd_reduce(sparsedf, 15)
-    #dfeats = feats_by_dep(deps, sparsedf)
+    #print(pmi_dict.head())
+    #sparsedf = to_sparse_df(pmi_dict)#, outpath='/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/')
+    #red = svd_reduce(sparsedf, 15)
+    #dfeats = feats_by_dep(deps, pmi_dict)
 #    dfeatsred = feats_by_dep(deps, red)
 #    print(calc_similarity(['he', 'she', 'dog',], ['nsubj', 'obj'],
 #                          red, dfeatsred))
-    #print(calc_similarity(['he', 'she', 'cat', 'dog',], ['nsubj', 'obj'],
-    #                      sparsedf, dfeats))
+#    print(calc_similarity(['he', 'she', 'cat', 'dog',], ['nsubj', 'obj'],
+#                          pmi_dict, dfeats))
     pairs = [('read', 'nsubj'), ('read', 'obj')]
-    lsfeats = lex_spec_feats(pairs, deps, sparsedf)#, outpath='/Users/garrettsmith/Desktop/')
+    lsfeats = lex_spec_feats(pairs, deps, pmi_dict)#, outpath='/Users/garrettsmith/Desktop/')
     #lsfeats = lex_spec_feats(pairs, deps, red)
     #print(lsfeats)
-    print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], sparsedf, lsfeats))
+    print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], pmi_dict, lsfeats))
     #print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], red, lsfeats))
