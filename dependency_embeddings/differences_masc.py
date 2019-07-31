@@ -68,11 +68,10 @@ def sim_to_df(simdf, matdf):
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
-    #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/PennDep/') for f in fn if f.endswith('.txt')])
-    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
-    #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpusLemmas/') for f in fn if f.endswith('.txt')])
+
+    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/MASC_OANC/') for f in fn if f.endswith('.txt')])
+
     csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtMaterials.csv'
-    #csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtLemmas.csv'
 
     # Setting up basic features
     print('Reading dependency files...')
@@ -95,7 +94,6 @@ if __name__ == '__main__':
     #print(vfeats)
 
     # Getting any missing words
-    # I THINK THIS IS WHERE I SHOULD FIDDLE AROUND
     missing = get_missing(ppmi, set(csmat.distractor.values))
     #missing = get_missing(red, set(csmat.distractor.values))
     missing += get_missing(ppmi, set(csmat.target.values))
@@ -118,4 +116,4 @@ if __name__ == '__main__':
     #print(fulldf.head(10))
     #print(fulldf.loc[fulldf['tplaus'] == 'implaus'].head())
     print('Saving to file...')
-    fulldf.to_csv('/Users/garrettsmith/Desktop/CunningsSturtFeatMatchBrownNewTest.csv', na_rep='NA')
+    fulldf.to_csv('/Users/garrettsmith/Desktop/CunningsSturtFeatMatchMASCNewTest.csv', na_rep='NA')

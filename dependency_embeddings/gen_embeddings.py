@@ -27,106 +27,62 @@ def read_standford(files, outpath=None):
             line = line.lower()
             line = re.sub('[0-9]+', '', line)
             curr = re.findall("[\w]+", line)
-            # Sometimes the parser was returning dependency n-tuples, but we
-            # only want triples for simplicity
+            # Sometimes Stanford parser was returning dependency n-tuples, but
+            # we only want triples for simplicity
+            # TODO: CHANGE TO ALLOW, E.G., nmod:poss, acl:relcl, etc.
             if len(curr) == 3:
+                # Correct a difference between old and new Univ. Deps.
+                if curr[0] == 'dobj':
+                    curr[0] = 'obj'
                 deps.append(curr)
     return deps
 
 
-def calc_pmi(wfreq, dfreq, jfreq, size, sized):
-    """This implementation gets around DivideByZero errors and sets
-    -inf to zero. Implements smoothing recommendation of Levy et al. (2015).
-    """
-    alpha = 0.75
-    with np.errstate(divide='ignore'):
-        #pmi = np.log2((jfreq * size) / (wfreq * dfreq))
-        pj = jfreq / size
-        pw = wfreq / size
-        pd = dfreq**alpha / sized**alpha
-        pmi = np.log2(pj / (pw * pd))
-        if pmi != -np.inf:
-            return pmi
-        else:
-            return 0.0
-
-
-def calc_ppmi(wfreq, dfreq, jfreq, size, sized):
-    """Only keeps the positive PMI. Implements smoothing recommendation of
-    Levy et al. (2015).
-    """
-    alpha=0.75
-    pj = jfreq / size
-    pw = wfreq / size
-    pd = dfreq**alpha / sized**alpha
-    #return np.maximum(0, np.log2((jfreq * size) / (wfreq * dfreq)))
-    return np.maximum(0, np.log2(pj / (pw * pd)))
-
-
 def make_pmi_dict(deps, positive=True, outpath=None):
-    """Based on Jurafsky & Martin (2019), Ch. 6. Includes context smoothing.
+    """Based on Jurafsky & Martin (2019), Levy & Goldberg (2015) with the
+    latter's context distribution smoothing.
     """
     alpha = 0.75  # context smoothing exponent
     df = pd.DataFrame(deps, columns=['DepType', 'Head', 'Dep'])
     ctmat = pd.crosstab(df.Dep, df.DepType)
-    pjoint = ctmat / np.sum(ctmat.values)
-    pword = ctmat.sum(axis=1) / np.sum(ctmat.values)
-    pdeptype = ctmat.sum(axis=0)**alpha / np.sum(ctmat.values**alpha)
-    pmimat = ctmat.copy()
-    for w in pmimat.index:
-        for d in pmimat.columns:
-            with np.errstate(divide='ignore'):
-                pmi = np.log2(pjoint.loc[w, d] / (pword.loc[w] *
-                                                  pdeptype.loc[d]))
-            if positive:
-                pmimat.loc[w, d] = np.maximum(0, pmi)
-            else:
-                if pmi != -np.inf:
-                    pmimat.loc[w, d] = pmi
-                else:
-                    pmimat.loc[w, d] = 0.0
+    pmimat = ctmat.to_numpy(dtype='float64')
+
+    # Based on https://github.com/piskvorky/word_embeddings/blob/master/run_embed.py
+    # Implemented this way for speed
+    marginal_words = pmimat.sum(axis=1)
+    marginal_deps = pmimat.sum(axis=0)**alpha
+    # Convert to probabilities
+    pmimat /= pmimat.sum()
+    # Divide by unigram word prob.
+    pmimat /= (marginal_words / marginal_words.sum())[:, None]
+    # Divide by unigram dependent probability
+    pmimat /= (marginal_deps / marginal_deps.sum())
+
+    with np.errstate(divide='ignore'):
+        np.log2(pmimat, out=pmimat) # PMI = log(#(w, c) * D / (#w * #c))
+    if positive:
+        np.maximum(0, pmimat, out=pmimat)
+    else:
+        pmimat[pmimat == -np.inf] = 0.0
+    pmimat = pd.DataFrame(pmimat, index=ctmat.index, columns=ctmat.columns)
+
+    # Old, slow
+    #for w in pmimat.index:
+    #    for d in pmimat.columns:
+    #        with np.errstate(divide='ignore'):
+    #            pmi = np.log2(pjoint.loc[w, d] / (pword.loc[w] *
+    #                                              pdeptype.loc[d]))
+    #        if positive:
+    #            pmimat.loc[w, d] = np.maximum(0, pmi)
+    #        else:
+    #            if pmi != -np.inf:
+    #                pmimat.loc[w, d] = pmi
+    #            else:
+    #                pmimat.loc[w, d] = 0.0
     if outpath:
         pmimat.to_csv(os.path.join(outpath, 'lexical_features.csv.gz'),
-               compression='gzip')
+               compression='gzip', na_rep=np.nan)
     return(pmimat.to_sparse())
-
-
-#def make_pmi_dict(deps, positive=True):
-#    """Does the bulk of the work. Counts words, dependency types, and their
-#    joint occurences, and returns a dictionary of (P)PMI for each pair.
-#    The positive argument is set to False by default, following rei2014looking.
-#    """
-#    wfreqs = Counter([item[-1] for item in deps])
-#    dfreqs = Counter([item[0] for item in deps])
-#    jfreqs = Counter([(item[0], item[-1]) for item in deps])
-#    size = len(deps)
-#    sized = sum(dfreqs.values())
-#    pmidict = Counter()
-#    for d, w in jfreqs.keys():
-#        if positive:
-#            pmidict[w, d] = calc_ppmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size, sized)
-#        else:
-#            pmidict[w, d] = calc_pmi(wfreqs[w], dfreqs[d], jfreqs[d, w], size, sized)
-    #fullpairs = product([w for _, w in jfreqs.keys()], [d for d, _ in jfreqs.keys()])
-    #unusedpairs = set(fullpairs) -
-    #for pair in fullpairs:
-#        if pair not in pmidict.keys():
-#            pmidict[pair[0], pair[1]] = 0
-#    return pmidict
-
-
-#def to_sparse_df(pmidict, outpath=None):
-#    """Converts from dict to sparse pandas DataFrame. If an output file path
-#    is provided, it saves the sparse data frame as a gzip-compressed .csv
-#    file.
-#    """
-#    # Filling unknowns with 0s here is not right!!
-#    #sdf = pd.Series(pmidict).unstack(fill_value=0.0).to_sparse()
-#    sdf = pd.Series(pmidict).unstack().to_sparse()
-#    if outpath:
-#        sdf.to_csv(os.path.join(outpath, 'lexical_features.csv.gz'),
-#                   compression='gzip')
-#    return sdf
 
 
 def svd_reduce(spdf, k=None, sym=False):
@@ -152,25 +108,29 @@ def lex_spec_feats(pairs, deps, df, outpath=None):
     """
     print('Calculating lexically specific dependent features...')
     dtypes = df.columns
-    lexspec = {}
+    #lexspec = {}
+    retcues = pd.DataFrame(columns=dtypes)
     for g, dep in pairs:
-        print('Working on pair {}-{}.'.format(g, dep))
+        label = '-'.join([g, dep])
+        print('Working on pair {}.'.format(label))
         words = list(set([w[-1] for w in deps
                           if w[0] == dep and w[1] == g]))
         nwords = len(words)
         if nwords == 0:
-            print('{}-{} did not appear in the corpus'.format(g, dep))
-            vec = np.full(len(dtypes), np.NaN)
+            print('{} did not appear in the corpus'.format(label))
+            #vec = np.full(len(dtypes), np.NaN)
+            retcues.loc[label] = np.NaN
         else:
             vec = np.zeros(len(dtypes))
             for word in words:
                 vec += df.loc[word].values / nwords
-        lexspec['-'.join([g, dep])] = vec
-    retcues = pd.DataFrame.from_dict(lexspec, orient='index', columns=dtypes)
+            #lexspec['-'.join([g, dep])] = vec
+            retcues.loc[label] = vec
+    #retcues = pd.DataFrame.from_dict(lexspec, orient='index', columns=dtypes)
     if outpath:
         print('Saving to file.')
         retcues.to_csv(os.path.join(outpath, 'retrieval_cues.csv.gz'),
-                   compression='gzip')
+                   compression='gzip', na_rep=np.nan)
     print('Done.')
     return retcues
 
@@ -204,7 +164,9 @@ def calc_similarity(words, attch, wdf, adf):
     assert all([adf.index.contains(a) for a in attch]), \
             'Not all words in word dataframe.'
     wvecs = wdf.loc[words]
-    avecs = adf.loc[attch]
+    avecs = adf.loc[attch]#.notna().all(1)
+    avecs = avecs[avecs.notna().all(1)]
+    df = pd.DataFrame(np.nan, columns=attch, index=words)
     sims = cosine_similarity(wvecs.append(avecs))[0:nwords, -nattch:]
     return pd.DataFrame(sims, columns=attch, index=words)
 
@@ -218,7 +180,7 @@ if __name__ == '__main__':
     deps = read_standford(file)
 
     # PPMI embeddings really do make more sense...
-    pmi_dict = make_pmi_dict(deps, positive=True)
+    pmi_dict = make_pmi_dict(deps, positive=False)
     #print(pmi_dict.head())
     #sparsedf = to_sparse_df(pmi_dict)#, outpath='/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/')
     #red = svd_reduce(sparsedf, 15)
@@ -230,6 +192,7 @@ if __name__ == '__main__':
 #                          pmi_dict, dfeats))
     pairs = [('read', 'nsubj'), ('read', 'obj')]
     lsfeats = lex_spec_feats(pairs, deps, pmi_dict)#, outpath='/Users/garrettsmith/Desktop/')
+    print(lsfeats)
     #lsfeats = lex_spec_feats(pairs, deps, red)
     #print(lsfeats)
     print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], pmi_dict, lsfeats))
