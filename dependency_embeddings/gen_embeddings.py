@@ -24,12 +24,19 @@ def read_standford(files, outpath=None):
     with fileinput.input(files=files) as f:
         deps = []
         for line in f:
-            line = line.lower()
+            # Getting rid of any numbers
             line = re.sub('[0-9]+', '', line)
-            curr = re.findall("[\w]+", line)
-            # Sometimes Stanford parser was returning dependency n-tuples, but
-            # we only want triples for simplicity
-            # TODO: CHANGE TO ALLOW, E.G., nmod:poss, acl:relcl, etc.
+            # Splits the line on commas, parentheses and spaces and filters
+            # out null strings
+            curr = list(filter(None, re.split("[,\(\) \n]+", line)))
+            # Keeping the distinction between deptype root and node ROOT
+            tmp = []
+            for i in curr:
+                if i != 'ROOT':
+                    tmp.append(i.lower())
+                else:
+                    tmp.append(i)
+            # Making sure we're only dealing with triples, just in case
             if len(curr) == 3:
                 # Correct a difference between old and new Univ. Deps.
                 if curr[0] == 'dobj':
@@ -181,7 +188,7 @@ if __name__ == '__main__':
 
     # PPMI embeddings really do make more sense...
     pmi_dict = make_pmi_dict(deps, positive=False)
-    #print(pmi_dict.head())
+    print(pmi_dict.head())
     #sparsedf = to_sparse_df(pmi_dict)#, outpath='/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/')
     #red = svd_reduce(sparsedf, 15)
     #dfeats = feats_by_dep(deps, pmi_dict)
@@ -192,8 +199,8 @@ if __name__ == '__main__':
 #                          pmi_dict, dfeats))
     pairs = [('read', 'nsubj'), ('read', 'obj')]
     lsfeats = lex_spec_feats(pairs, deps, pmi_dict)#, outpath='/Users/garrettsmith/Desktop/')
-    print(lsfeats)
+#    print(lsfeats)
     #lsfeats = lex_spec_feats(pairs, deps, red)
-    #print(lsfeats)
+    print(lsfeats)
     print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], pmi_dict, lsfeats))
     #print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], red, lsfeats))

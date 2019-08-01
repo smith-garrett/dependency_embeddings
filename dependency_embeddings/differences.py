@@ -95,7 +95,6 @@ if __name__ == '__main__':
     #print(vfeats)
 
     # Getting any missing words
-    # I THINK THIS IS WHERE I SHOULD FIDDLE AROUND
     missing = get_missing(ppmi, set(csmat.distractor.values))
     #missing = get_missing(red, set(csmat.distractor.values))
     missing += get_missing(ppmi, set(csmat.target.values))
