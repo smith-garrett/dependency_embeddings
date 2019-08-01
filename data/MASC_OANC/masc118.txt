@@ -1,0 +1,36 @@
+root(ROOT-0, Subject-1)
+punct(Subject-1, :-2)
+prep(Subject-1, Re-3)
+punct(Re-3, :-4)
+pobj(Re-3, Congratulations-5)
+
+root(ROOT-0, Thanks-1)
+punct(Thanks-1, .-2)
+
+root(ROOT-0, VinceJKaminski@ECT-1)
+
+root(ROOT-0, Subject-1)
+punct(Subject-1, :-2)
+dep(Subject-1, Congratulations-3)
+
+nsubj(looked-6, Rick-1)
+punct(looked-6, ,-2)
+nsubj(looked-6, I-3)
+aux(looked-6, have-4)
+advmod(looked-6, just-5)
+root(ROOT-0, looked-6)
+prep(looked-6, at-7)
+det(memo-9, the-8)
+pobj(at-7, memo-9)
+prep(memo-9, regarding-10)
+pobj(regarding-10, promotions-11)
+punct(looked-6, .-12)
+
+root(ROOT-0, Congratulations-1)
+punct(Congratulations-1, --2)
+advmod(deserved-4, well-3)
+dep(Congratulations-1, deserved-4)
+punct(Congratulations-1, .-5)
+
+root(ROOT-0, Vince-1)
+
