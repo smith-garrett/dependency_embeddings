@@ -116,4 +116,4 @@ if __name__ == '__main__':
     #print(fulldf.head(10))
     #print(fulldf.loc[fulldf['tplaus'] == 'implaus'].head())
     print('Saving to file...')
-    fulldf.to_csv('/Users/garrettsmith/Desktop/CunningsSturtFeatMatchMASCNewTest.csv', na_rep='NA')
+    fulldf.to_csv('/Users/garrettsmith/Desktop/CunningsSturtFeatMatchMASC.csv', na_rep='NA')

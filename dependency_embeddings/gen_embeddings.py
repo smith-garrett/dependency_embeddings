@@ -15,7 +15,7 @@ from scipy.sparse.linalg import svds
 import os
 import fileinput
 import gzip
-
+import string
 
 def read_standford(files, outpath=None):
     """Takes a (list of) file(s) and returns a nicely formatted set of
@@ -29,13 +29,11 @@ def read_standford(files, outpath=None):
             # Splits the line on commas, parentheses and spaces and filters
             # out null strings
             curr = list(filter(None, re.split("[,\(\) \n]+", line)))
+            # Stripping any remaining whitespace & punctuation
+            excl = string.punctuation + string.whitespace
+            curr = [i.strip(excl) for i in curr]
             # Keeping the distinction between deptype root and node ROOT
-            tmp = []
-            for i in curr:
-                if i != 'ROOT':
-                    tmp.append(i.lower())
-                else:
-                    tmp.append(i)
+            curr = [i.lower() if i not in ['root', 'ROOT'] else i for i in curr]
             # Making sure we're only dealing with triples, just in case
             if len(curr) == 3:
                 # Correct a difference between old and new Univ. Deps.
@@ -73,26 +71,13 @@ def make_pmi_dict(deps, positive=True, outpath=None):
         pmimat[pmimat == -np.inf] = 0.0
     pmimat = pd.DataFrame(pmimat, index=ctmat.index, columns=ctmat.columns)
 
-    # Old, slow
-    #for w in pmimat.index:
-    #    for d in pmimat.columns:
-    #        with np.errstate(divide='ignore'):
-    #            pmi = np.log2(pjoint.loc[w, d] / (pword.loc[w] *
-    #                                              pdeptype.loc[d]))
-    #        if positive:
-    #            pmimat.loc[w, d] = np.maximum(0, pmi)
-    #        else:
-    #            if pmi != -np.inf:
-    #                pmimat.loc[w, d] = pmi
-    #            else:
-    #                pmimat.loc[w, d] = 0.0
     if outpath:
         pmimat.to_csv(os.path.join(outpath, 'lexical_features.csv.gz'),
                compression='gzip', na_rep=np.nan)
     return(pmimat.to_sparse())
 
 
-def svd_reduce(spdf, k=None, sym=False):
+def svd_reduce(spdf, k=None, sym=False, outpath=None):
     """Performs dimensionality reduction using singular value decomposition of
     the sparse DataFrame -> U*Sigma*V. Returns U*Sigma^0.5 as the rank-k word
     representations (levy2015improving).
@@ -104,7 +89,11 @@ def svd_reduce(spdf, k=None, sym=False):
         mat = U.dot(np.diag(S))
     mat = pd.SparseDataFrame(mat)
     mat.index = spdf.index.values
-    #mat.columns = spdf.columns.values
+    if outpath:
+        print('Saving to file.')
+        mat.to_csv(os.path.join(outpath, 'lexical_features_svd.csv.gz'),
+                   compression='gzip', na_rep=np.nan)
+    print('Done.')
     return mat
 
 
@@ -181,13 +170,13 @@ def calc_similarity(words, attch, wdf, adf):
 if __name__ == '__main__':
     file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/parsedbrown0.txt'
     files = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in
-             os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
+             os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/MASC_OANC/') for f in fn if f.endswith('.txt')])
 
-    #deps = read_standford(files)
-    deps = read_standford(file)
+    deps = read_standford(files)
+    #deps = read_standford(file)
 
     # PPMI embeddings really do make more sense...
-    pmi_dict = make_pmi_dict(deps, positive=False)
+    pmi_dict = make_pmi_dict(deps, positive=True)
     print(pmi_dict.head())
     #sparsedf = to_sparse_df(pmi_dict)#, outpath='/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/')
     #red = svd_reduce(sparsedf, 15)

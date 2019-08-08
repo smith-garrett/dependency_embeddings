@@ -68,8 +68,8 @@ def sim_to_df(simdf, matdf):
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
-    #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/PennDep/') for f in fn if f.endswith('.txt')])
-    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
+    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/PennDep/') for f in fn if f.endswith('.txt')])
+    #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
     #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpusLemmas/') for f in fn if f.endswith('.txt')])
     csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtMaterials.csv'
     #csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtLemmas.csv'
