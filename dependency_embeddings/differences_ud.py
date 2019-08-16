@@ -97,6 +97,8 @@ if __name__ == '__main__':
     #missing = get_missing(red, set(csmat.distractor.values))
     missing += get_missing(ppmi, set(csmat.target.values))
     #missing += get_missing(red, set(csmat.target.values))
+    missing += get_missing(ppmi, set(csmat.verb.values))
+    #missing += get_missing(red, set(csmat.verb.values))
     #print(missing)
 
     # Getting similarities

@@ -3,6 +3,8 @@
 """Functions for calculating the (differences in) differences between cue-feature match for words in sentence processing experiments.
 
 Expects the feature vectors to be stored in gzip-compressed .csv files.
+
+Idea: the difference in
 """
 
 
@@ -66,20 +68,30 @@ def sim_to_df(simdf, matdf):
 
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
-    corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/PennDep/') for f in fn if f.endswith('.txt')])
-    #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
-    #corpfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpusLemmas/') for f in fn if f.endswith('.txt')])
+
+    # Leaving out b/c not hand-checked
+    #brownfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/') for f in fn if f.endswith('.txt')])
+
+    mascfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/MASC_OANC/') for f in fn if f.endswith('.txt')])
+
+    pennfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/PennDep/') for f in fn if f.endswith('.txt')])
+
+    udfiles = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/UD/') for f in fn if f.endswith('.txt')])
+
     csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtMaterials.csv'
-    #csfile = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/CunningsSturtLemmas.csv'
 
     # Setting up basic features
     print('Reading dependency files...')
-    deps = read_standford(corpfiles)
+    deps = read_standford(mascfiles)
+    deps += read_standford(pennfiles)
+    #deps += read_standford(brownfiles)
+    deps += read_standford(udfiles)
     print('Making PPMI matrix...')
-    ppmi = make_pmi_dict(deps, positive=True)#, outpath='~/Desktop')
+    ppmi = make_pmi_dict(deps, positive=True, outpath='~/Desktop')
 
     # SVD to reduce
-    #red = svd_reduce(ppmi, k=len(sdf.columns)//2, sym=True)
+    #print('Doing SVD for dimensionality reduction.')
+    #red = svd_reduce(ppmi, k=len(ppmi.columns)//2, sym=True, outpath='~/Desktop')
 
     # Getting C&S's materials
     print('Loading materials from Cunnings & Sturt...')
@@ -89,7 +101,7 @@ if __name__ == '__main__':
     print('Calculating retrieval cues...')
     pairs = [(i, 'obj') for i in set(csmat.verb.values)]
     vfeats = lex_spec_feats(pairs, deps, ppmi, outpath='~/Desktop')
-    #vfeats = lex_spec_feats(pairs, deps, red)
+    #vfeats = lex_spec_feats(pairs, deps, red, outpath='~/Desktop')
     #print(vfeats)
 
     # Getting any missing words
@@ -97,8 +109,6 @@ if __name__ == '__main__':
     #missing = get_missing(red, set(csmat.distractor.values))
     missing += get_missing(ppmi, set(csmat.target.values))
     #missing += get_missing(red, set(csmat.target.values))
-    missing += get_missing(ppmi, set(csmat.verb.values))
-    #missing += get_missing(red, set(csmat.verb.values))
     #print(missing)
 
     # Getting similarities
@@ -117,4 +127,4 @@ if __name__ == '__main__':
     #print(fulldf.head(10))
     #print(fulldf.loc[fulldf['tplaus'] == 'implaus'].head())
     print('Saving to file...')
-    fulldf.to_csv('/Users/garrettsmith/Desktop/CunningsSturtFeatMatchPenn.csv', na_rep='NA')
+    fulldf.to_csv('/Users/garrettsmith/Desktop/CunningsSturtFeatMatchMASCPennBrownUD.csv', na_rep='NA')
