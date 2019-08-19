@@ -17,7 +17,7 @@ import fileinput
 import gzip
 import string
 
-def read_standford(files, outpath=None):
+def read_standford(files):
     """Takes a (list of) file(s) and returns a nicely formatted set of
     dependent-governor-dependent triples.
     """
@@ -39,6 +39,8 @@ def read_standford(files, outpath=None):
                 # Correct a difference between old and new Univ. Deps.
                 if curr[0] == 'dobj':
                     curr[0] = 'obj'
+                # Getting rid of the colon in, e.g., nsubj:pass
+                curr[0] = curr[0].replace(':', '')
                 deps.append(curr)
     return deps
 
@@ -99,12 +101,12 @@ def svd_reduce(spdf, k=None, sym=False, outpath=None):
 
 def lex_spec_feats(pairs, deps, df, outpath=None):
     """For each governor-dependency tuple, calculate the average feature vector across all words that appeared as that type of dependent of the
-    governor. Takes a list of tuples of pairs, the dependencies from the
-    corpus, and a dataframe containing the word feature vectors/head features.
+    governor. Takes a list of tuples of governor-deptype pairs, the dependency
+    triples from the corpus, and a dataframe containing the word feature
+    vectors/head features.
     """
     print('Calculating lexically specific dependent features...')
     dtypes = df.columns
-    #lexspec = {}
     retcues = pd.DataFrame(columns=dtypes)
     for g, dep in pairs:
         label = '-'.join([g, dep])
@@ -114,15 +116,12 @@ def lex_spec_feats(pairs, deps, df, outpath=None):
         nwords = len(words)
         if nwords == 0:
             print('{} did not appear in the corpus'.format(label))
-            #vec = np.full(len(dtypes), np.NaN)
             retcues.loc[label] = np.NaN
         else:
             vec = np.zeros(len(dtypes))
             for word in words:
-                vec += df.loc[word].values / nwords
-            #lexspec['-'.join([g, dep])] = vec
+                vec += df.loc[word].to_numpy() / nwords
             retcues.loc[label] = vec
-    #retcues = pd.DataFrame.from_dict(lexspec, orient='index', columns=dtypes)
     if outpath:
         print('Saving to file.')
         retcues.to_csv(os.path.join(outpath, 'retrieval_cues.csv.gz'),
@@ -149,16 +148,19 @@ def feats_by_dep(deps, df):
 
 
 def calc_similarity(words, attch, wdf, adf):
-    """Calculate the cosine similarity between words and attachment sites. Takes a list of words, a list of dependent types, a words data frame, and an attachment feature data frame subsetted with the desired dependency type(s).
+    """Calculate the cosine similarity between words and attachment sites.
+    Takes a list of words, a list of dependent types, a lexical features data
+    frame, and an attachment feature/retrieval cue data frame subsetted with
+    the desired dependency type(s).
     """
     assert isinstance(words, list), 'Words should be in a list.'
     assert isinstance(attch, list), 'Dependent types should be in a list.'
     nattch = len(attch)
     nwords = len(words)
     assert all([wdf.index.contains(w) for w in words]), \
-            'Not all words in word dataframe.'
+            'Not all dependents in dataframe.'
     assert all([adf.index.contains(a) for a in attch]), \
-            'Not all words in word dataframe.'
+            'Not all governors in dataframe.'
     wvecs = wdf.loc[words]
     avecs = adf.loc[attch]#.notna().all(1)
     avecs = avecs[avecs.notna().all(1)]
@@ -188,7 +190,6 @@ if __name__ == '__main__':
 #                          pmi_dict, dfeats))
     pairs = [('read', 'nsubj'), ('read', 'obj')]
     lsfeats = lex_spec_feats(pairs, deps, pmi_dict)#, outpath='/Users/garrettsmith/Desktop/')
-#    print(lsfeats)
     #lsfeats = lex_spec_feats(pairs, deps, red)
     print(lsfeats)
     print(calc_similarity(['he', 'book'], ['read-nsubj', 'read-obj'], pmi_dict, lsfeats))
