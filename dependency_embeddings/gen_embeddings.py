@@ -42,6 +42,8 @@ def read_standford(files):
                 # Getting rid of the colon in, e.g., nsubj:pass
                 curr[0] = curr[0].replace(':', '')
                 deps.append(curr)
+                # CHANGED
+                #deps.append(['-'.join([curr[0], curr[1]]), curr[2]])
     return deps
 
 
@@ -51,8 +53,11 @@ def make_pmi_dict(deps, positive=True, outpath=None):
     """
     alpha = 0.75  # context smoothing exponent
     df = pd.DataFrame(deps, columns=['DepType', 'Head', 'Dep'])
+    # CHANGED
+    #df = pd.DataFrame(deps, columns=['DepType', 'Dep'])
     ctmat = pd.crosstab(df.Dep, df.DepType)
     pmimat = ctmat.to_numpy(dtype='float64')
+    #pmimat = pd.crosstab(df.Dep, df.DepType).to_sparse().to_coo()
 
     # Based on https://github.com/piskvorky/word_embeddings/blob/master/run_embed.py
     # Implemented this way for speed
@@ -170,9 +175,9 @@ def calc_similarity(words, attch, wdf, adf):
 
 
 if __name__ == '__main__':
-    file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/parsedbrown0.txt'
+    #file = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/parsedbrown0.txt'
     files = sorted([os.path.abspath(os.path.join(dirp, f)) for dirp, _, fn in
-             os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/MASC_OANC/') for f in fn if f.endswith('.txt')])
+             os.walk('/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/BritNatCorp/') for f in fn if f.endswith('.txt')])
 
     deps = read_standford(files)
     #deps = read_standford(file)
