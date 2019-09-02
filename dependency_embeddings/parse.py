@@ -20,14 +20,14 @@ config = {'processors': 'tokenize,pos,depparse', 'tokenize_pretokenized': 'True'
 nlp = stanfordnlp.Pipeline(**config)
 
 #readdir = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/BrownCorpus/'
-readdir = '/Users/garrettsmith/Google Drive/UniPotsdam/Resources/Corpora/BritNatCorp/Texts/A/'
+readdir = '/home/smith/2554/download/PlainText/'
 #writedir = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpus/'
 #writedir = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/ParsedBrownCorpusLemmas/'
-writedir = '/Users/garrettsmith/Google Drive/UniPotsdam/Research/Features/dependency_embeddings/data/BritNatCorp/'
+writedir = '/home/smith/dependency_embeddings/data/BritNatCorp/'
 
 start_time = time.time()
 print('Beginning parsing...')
-for filename in glob.glob(os.path.join(readdir, 'x*.txt')):
+for filename in glob.glob(os.path.join(readdir, '*.txt')):
     file_time = time.time()
     print('Parsing {}'.format(os.path.basename(filename)))
     with open(filename, 'r') as f:
