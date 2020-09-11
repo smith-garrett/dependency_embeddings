@@ -1,4 +1,6 @@
-# Developing corpus-based lexical features and retrieval cues
+# Old, unsuccessful method for developing corpus-based lexical features and retrieval cues
+
+Better method reported in Smith and Vasishth (2020, *Cognitive Science*), but we still include this method for completeness.
 
 Cunnings & Sturt (2018) reported illusion of plausibility effects. They argue in that this type of effect requires lexically specific retrieval cues, e.g., *shattered* is looking for direct objects that are shatterable and not ones that are fluffy, like what *pet (the bunny, e.g.)* is looking for. They don't provide a principled way of deriving those retrieval cues, though.
 
